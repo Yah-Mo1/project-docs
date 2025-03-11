@@ -1,0 +1,64 @@
+---
+- name: Install app dependencies and run app
+  hosts: web
+  gather_facts: yes
+  become: yes # Run with sudo privileges
+
+  tasks:
+    - name: Remove old Node.js versions and conflicting packages
+      apt:
+        name:
+          - nodejs
+          - npm
+          - libnode-dev # This package is causing conflicts
+        state: absent
+      ignore_errors: yes # Prevent failure if some packages are missing
+
+    - name: Auto-remove unneeded dependencies
+      command: apt autoremove -y
+
+    - name: Install dependencies for NodeSource
+      apt:
+        name:
+          - curl
+          - software-properties-common
+        state: present
+
+    - name: Add Node.js 18.x repository
+      shell: |
+        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+      args:
+        executable: /bin/bash
+
+    - name: Install Node.js and npm
+      apt:
+        name:
+          - nodejs
+        state: present
+
+    - name: Install Git
+      apt:
+        name: git
+        state: present
+
+    - name: Clone the app repository from GitHub
+      git:
+        repo: "https://github.com/Yah-Mo1/test-app"
+        dest: "/home/ubuntu/app"
+        version: main
+
+    - name: Install app dependencies
+      command: npm install
+      args:
+        chdir: /home/ubuntu/app
+
+    - name: Start the app
+      shell: "exec nohup npm start > app.log 2>&1 &"
+      args:
+        chdir: /home/ubuntu/app
+
+    - name: Allow traffic on port 3000
+      ufw:
+        rule: allow
+        port: 3000
+        proto: tcp

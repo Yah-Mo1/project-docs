@@ -1,0 +1,100 @@
+---
+- name: Install app dependencies and run app with PM2
+  hosts: web
+  gather_facts: yes
+  become: yes # Run with sudo privileges
+
+  tasks:
+    - name: Remove old Node.js versions and conflicting packages
+      apt:
+        name:
+          - nodejs
+          - npm
+          - libnode-dev
+        state: absent
+      ignore_errors: yes
+
+    - name: Auto-remove unneeded dependencies
+      command: apt autoremove -y
+
+    - name: Install dependencies for NodeSource
+      apt:
+        name:
+          - curl
+          - software-properties-common
+        state: present
+
+    - name: Add Node.js 18.x repository
+      shell: |
+        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+      args:
+        executable: /bin/bash
+
+    - name: Install Node.js and npm
+      apt:
+        name: nodejs
+        state: present
+
+    - name: Install Git
+      apt:
+        name: git
+        state: present
+
+    - name: Clone the app repository from GitHub
+      git:
+        repo: "https://github.com/Yah-Mo1/test-app"
+        dest: "/home/ubuntu/app"
+        version: main
+
+    - name: Ensure npm is accessible
+      shell: which npm
+      register: npm_path_output
+
+    - name: Debug npm path
+      debug:
+        msg: "npm is located at {{ npm_path_output.stdout }}"
+
+    - name: Install app dependencies
+      command: "{{ npm_path_output.stdout }} install"
+      args:
+        chdir: /home/ubuntu/app
+
+    - name: Install PM2 globally
+      npm:
+        name: pm2
+        global: yes
+        state: present
+
+    - name: Set DB_HOST environment variable permanently
+      lineinfile:
+        path: /etc/environment
+        line: 'DB_HOST="mongodb://172.31.2.50:27017"'
+        create: yes
+
+    - name: Ensure environment variables are loaded for all users
+      shell: export DB_HOST="mongodb://172.31.2.50:27017" && echo 'export DB_HOST="mongodb://<DB_INSTANCE_PRIVATE_IP>:27017"' >> ~/.bashrc
+
+    - name: Source environment file using `.`
+      shell: . /etc/environment
+      args:
+        executable: /bin/bash
+
+    - name: Restart the app with PM2
+      shell: pm2 restart my-app || pm2 start app.js --name my-app
+      args:
+        chdir: /home/ubuntu/app
+        executable: /bin/bash
+
+    - name: Save PM2 process list
+      command: pm2 save
+
+    - name: Set PM2 to start on boot
+      command: pm2 startup systemd | sudo tee /etc/systemd/system/pm2-ubuntu.service
+      args:
+        chdir: /home/ubuntu/app
+
+    - name: Allow traffic on port 3000
+      ufw:
+        rule: allow
+        port: 3000
+        proto: tcp

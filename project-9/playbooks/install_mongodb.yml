@@ -1,0 +1,23 @@
+---
+- name: Install MongoDB 7.0
+  hosts: db
+  gather_facts: yes
+  become: yes # Runs tasks with sudo privileges
+
+  tasks:
+    - name: Import the MongoDB public key
+      apt_key:
+        url: "https://pgp.mongodb.com/server-7.0.asc"
+        state: present
+
+    - name: Add the MongoDB repository
+      apt_repository:
+        repo: "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse"
+        state: present
+        filename: mongodb-org-7.0
+
+    - name: Install MongoDB 7.0
+      apt:
+        name: mongodb-org
+        state: present
+        update_cache: yes
