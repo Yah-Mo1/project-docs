@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: testapp-deployment
+  labels:
+    app: testapp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: testapp
+  template:
+    metadata:
+      labels:
+        app: testapp
+    spec:
+      imagePullSecrets:
+        - name: my-dockerhub-secret
+      # initContainers:
+      #   - name: wait-for-mongo
+      #     image: busybox
+      #     command:
+      #       [
+      #         "sh",
+      #         "-c",
+      #         "until nc -z mongod-svc 27017; do echo waiting for mongo; sleep 2; done",
+      #       ]
+      containers:
+        - name: test-app
+          image: yah3i94/testapp:app
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DB_HOST
+              value: "mongodb://mongod-svc:27017/posts"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              cpu: "500m"
+# Use the command kubectl apply -f deployment.yml to create the deployment

@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongod-deployment
+  labels:
+    app: mongo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo
+  template:
+    metadata:
+      labels:
+        app: mongo
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7.0
+          args: ["--bind_ip", "0.0.0.0"]
+          ports:
+            - containerPort: 27017
+          readinessProbe:
+            tcpSocket:
+              port: 27017
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: mongo-pv
+              mountPath: /data/db
+          resources: # resource requests and limits
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "0.5Gi"
+              cpu: "500m"
+      volumes:
+        - name: mongo-pv
+          persistentVolumeClaim:
+            claimName: mongo-pvc-fixed
+# Use the command kubectl apply -f deployment.yml to create the deployment
